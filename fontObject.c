@@ -377,13 +377,10 @@ Font* fontFromFile(char* dir, int index)
     curFont->tableRecords = malloc(curFont->numTables * sizeof(struct FontTableRecord));
     fseek(curFont->fontFile, 6l, SEEK_CUR);
     fread(curFont->tableRecords, sizeof(struct FontTableRecord), curFont->numTables, curFont->fontFile);
-    for (uint16_t i = 0; i < curFont->numTables; ++i)
-    {
-        struct FontTableRecord* current = &(curFont->tableRecords[i]);
-        switchEndian32(&current->tableTag);
-        switchEndian32(&current->offset);
-        switchEndian32(&current->length);
-    }
+    for (uint32_t* p = (uint32_t*) curFont->tableRecords;
+            p < (uint32_t*) curFont->tableRecords + curFont->numTables;
+            ++p)
+        switchEndian32(p);
 
     // 如果是OTF字体，则使用CFF表内的名字；顺便确定是否为CID字体
     if (curFont->isOTF) getNameCff(curFont);
