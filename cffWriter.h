@@ -61,7 +61,11 @@ inline OffSize cffCalcOffSize(Offset offset)
 typedef struct CffObjectNode_
 {
     size_t size;
-    void* data;
+    union
+    {
+        void* data; // living when size != 0
+        uintptr_t emptyNodeCount; // living when size == 0
+    } ext;
     struct CffObjectNode_* next;
 } CffObjectNode;
 
