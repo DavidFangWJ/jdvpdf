@@ -10,6 +10,9 @@
 #include "fontObject.h"
 #include "fontWriter.h"
 
+#include "cffReader.h"
+#include "cffWriter.h" // for cff subsetting
+
 extern FILE* outFile;
 
 inline static void switchEndian32(uint32_t* num)
@@ -38,7 +41,7 @@ inline static uint32_t readUint32BE(FILE* f)
 }
 
 /**
- * 生成一个CFF字体的子集。辛时雨快来写！
+ * 生成一个CFF字体的子集。
  * @param numGID 一共使用的GID数
  * @param GIDs GID列表，以升序排列。
  * @param f 原字体。
@@ -47,7 +50,55 @@ void outputSubsetCFF(size_t numGID, uint16_t* GIDs, Font* f)
 {
     uint16_t indexCFF = findIndexOfTable(f, "CFF ");
     uint32_t length = f->tableRecords[indexCFF].length;
-    uint32_t absOffset = f->tableRecords[indexCFF].offset;
+    uint32_t fileBegin = f->tableRecords[indexCFF].offset;
+
+    FILE* file = f->fontFile;
+
+    // Entry Header
+    fseek(file, fileBegin, SEEK_SET);
+    CffHeader header;
+    cffHeaderExtract(file, &header);
+
+    // Entry Name INDEX
+    {   
+        CffIndex nameIndex;
+        cffIndexExtract(file, &nameIndex);
+        cffIndexSkip(&nameIndex);
+    }
+
+    // Entry Top DICT INDEX
+    long topDictBegin, topDictEnd;
+    {
+        CffIndex topDictIndex;
+        cffIndexExtract(file, &topDictIndex);
+        cffIndexFindObject(&topDictIndex, 0, &topDictBegin, &topDictEnd);
+    }
+
+    // Subsetting charstrings
+    // TO-DO: seek to somewhere where the CharstringsIndex exists
+    CffIndex inCharstringsIndex;
+    cffIndexExtract(file, &inCharstringsIndex);
+    CffIndexModel outCharstringsIndex;
+    cffIndexModelConstruct(&outCharstringsIndex);
+    uint16_t* itPendingGID = GIDs;
+    uint16_t* endPendingGID = GIDs + numGID;
+    for (size_t i = 0; i < inCharstringsIndex.count; ++i)
+    {
+        if (itPendingGID != endPendingGID && *itPendingGID == i)
+        {
+            ++itPendingGID;
+            long objectBegin, objectLength;
+            cffIndexFindObject(&inCharstringsIndex, i, &objectBegin, &objectLength);
+            cffIndexModelAppendEmpty(cffObjectNodeFromFile(file, objectBegin, objectLength));
+        }
+        else
+        {
+            cffIndexModelAppendEmpty(&outCharstringsIndex);
+        }
+    }
+    // TO-DO: deal with other sections
+    cffIndexModelDestruct(&outCharstringsIndex);
+/*
     static uint8_t header[8] = {1,0,4,4,0,1,1,1};// 文件头和name dic的开头4字节
     uint32_t tmp;
     char* topDictBuffer;
@@ -64,6 +115,7 @@ void outputSubsetCFF(size_t numGID, uint16_t* GIDs, Font* f)
     tmp = fgetc(f->fontFile);
 
     //tmp = readUint16BE(f->fontFile);
+*/
 }
 
 inline static void readLoca(int locaFormat, uint16_t numGlyphs, FILE* f, struct FontTableRecord* record,
