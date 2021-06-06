@@ -43,7 +43,7 @@ void cffIndexExtract(FILE* file, CffIndex* OUT_cffIndex)
     OUT_cffIndex->objectArrayInFile = offsetArrayInFile + count * offSize;
 }
 
-void cffIndexFindObject(CffIndex* cffIndex, Offset indexInArr, long* OUT_beginOffset, long* OUT_length)
+void cffIndexFindObject(CffIndex* cffIndex, size_t indexInArr, long* OUT_beginOffset, long* OUT_length)
 {
     assert(cffIndex != NULL);
     assert(OUT_beginOffset != NULL);

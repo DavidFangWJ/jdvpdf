@@ -70,7 +70,7 @@ void cffIndexExtract(FILE* file, CffIndex* OUT_cffIndex);
  * @param OUT_beginOffset an out parameter. yields the object's beginning offset in file
  * @param OUT_length an out parameter. yields the length of the object
  */
-void cffIndexFindObject(CffIndex* cffIndex, Offset indexInArr, long* OUT_beginOffset, long* OUT_length);
+void cffIndexFindObject(CffIndex* cffIndex, size_t indexInArr, long* OUT_beginOffset, long* OUT_length);
 
 /**
  * Skips the given INDEX
