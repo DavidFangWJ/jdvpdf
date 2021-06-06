@@ -70,7 +70,7 @@ void cffIndexSkip(CffIndex* cffIndex)
 
     if (cffIndex->count == 0)
     {
-        fseek(cffIndex, cffIndex->offsetArrayInFile, SEEK_SET);
+        fseek(cffIndex->file, cffIndex->offsetArrayInFile, SEEK_SET);
         return;
     }
 
