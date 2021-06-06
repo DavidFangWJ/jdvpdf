@@ -115,6 +115,12 @@ void cffIndexModelDestruct(CffIndexModel* model);
 void cffIndexModelAppend(CffIndexModel* model, CffObjectNode* node);
 
 /**
+ * Appends an empty object to an INDEX model
+ * @param model the model to be appended to
+ */
+void cffIndexModelAppendEmpty(CffIndexModel* model);
+
+/**
  * Calculates the estimated size of an INDEX
  * @param model the INDEX model whose size is to be calculated
  * @returns the size

@@ -25,7 +25,7 @@ CffObjectNode* cffObjectNodeFromFile(FILE* file, size_t size)
 
 void cffObjectNodeFree(CffObjectNode* node)
 {
-    if (node->size != 0) free(node->ext->data);
+    if (node->size != 0) free(node->ext.data);
     free(node);
 }
 
