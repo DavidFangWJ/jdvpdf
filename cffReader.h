@@ -7,18 +7,26 @@
 #ifndef JDVPDF_CFFREADER_H
 #define JDVPDF_CFFREADER_H
 
-#include "stdint.h"
-#include "stdio.h"
+#include <stdint.h>
+#include <stdio.h>
 
+#include "cffCommon.h"
 
-// Data Types as defined in Chapter 3 of CFF spec
+typedef struct
+{
+    Card8 major;
+    Card8 minor;
+    Card8 hdrSize;
+    OffSize offSize;
+} CffHeader;
 
-typedef uint8_t Card8;
-typedef uint16_t Card16;
-typedef uint8_t OffSize;
-// Note: the size of an Offset can be 1, 2, 3 or 4 bytes
-// Here we use a 4 byte integer to store it
-typedef uint32_t Offset;
+/**
+ * Extracts a header
+ * Note: affects the file cursor!
+ * @param file the file where the header exists
+ * @param OUT_cffHeader an out parameter. yields the header
+ */
+void cffHeaderExtract(FILE* file, CffHeader* OUT_cffHeader);
 
 // An info type for dealing with an INDEX structure in CFF
 typedef struct
@@ -50,10 +58,9 @@ inline uint32_t readUnsignedFromFileBE(FILE* file, size_t size)
  * Extracts information of an INDEX
  * Note: affects the file cursor!
  * @param file the file where the INDEX exists
- * @param sectionBegin the offset in file where the INDEX begins
  * @param OUT_cffIndex an out parameter. yields information for seeking objects in the INDEX.
  */
-void cffIndexExtractFromFile(FILE* file, long sectionBegin, CffIndex* OUT_cffIndex);
+void cffIndexExtract(FILE* file, CffIndex* OUT_cffIndex);
 
 /**
  * Finds the place of an object in an INDEX
@@ -64,5 +71,12 @@ void cffIndexExtractFromFile(FILE* file, long sectionBegin, CffIndex* OUT_cffInd
  * @param OUT_length an out parameter. yields the length of the object
  */
 void cffIndexFindObject(CffIndex* cffIndex, Offset indexInArr, long* OUT_beginOffset, long* OUT_length);
+
+/**
+ * Skips the given INDEX
+ * Note: affects the file cursor!
+ * @param cffIndex the INDEX structure to skip
+ */
+void cffIndexSkip(CffIndex* cffIndex);
 
 #endif // JDVPDF_CFFREADER_H
