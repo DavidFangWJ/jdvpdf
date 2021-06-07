@@ -59,7 +59,7 @@ void cffIndexFindObject(CffIndex* cffIndex, size_t indexInArr, long* OUT_beginOf
 
     fseek(file, cffIndex->offsetArrayInFile + indexInArr * offSize, SEEK_SET);
 
-    // Note: these offsets begins from 1
+    // Note: these offsets begin from 1
     Offset offsetBegin = readUnsignedFromFileBE(file, offSize); 
     Offset offsetEnd = readUnsignedFromFileBE(file, offSize); // begin of the next is end of this
 
@@ -86,7 +86,7 @@ void cffIndexSkip(CffIndex* cffIndex)
     fseek(file, cffIndex->objectArrayInFile + offsetEnd - 1, SEEK_SET);
 }
 
-int32_t readDictInt(int32_t current, FILE* f)
+static int32_t readDictInt(int32_t current, FILE* f)
 {
     if (current < 30)
     {
@@ -104,64 +104,79 @@ int32_t readDictInt(int32_t current, FILE* f)
     return current;
 }
 
-DictItem* topDict;
-
 /**
  * 从Top DICT INDEX中读取Top DICT的内容。by 懒懒
- * @param topDictIndex 有关Top DICT INDEX的数据
+ * @param dictIndex 有关Top DICT INDEX的数据
  */
-void readTopDict(CffIndex* topDictIndex)
+void cffDictConstructFromIndex(CffIndex* dictIndex, CffDict* OUT_cffDict)
 {
-    assert(topDictIndex != NULL);
+    assert(dictIndex != NULL);
+    assert(OUT_cffDict != NULL);
+    
     // 直接读取第2个数字
-    long beginOffset, topDictLength;
-    cffIndexFindObject(topDictIndex, 0, &beginOffset, &topDictLength);
+    long beginOffset, dictLength;
+    cffIndexFindObject(dictIndex, 0, &beginOffset, &dictLength);
     // 数据和命令至少1字节，因此项数不会超过字节数
-    topDict = malloc(topDictLength * sizeof(DictItem));
-    DictItem* current = topDict;
 
-    fseek(topDictIndex->file, beginOffset, SEEK_SET);
-    for (long i=0; i<topDictLength; i = ftell(topDictIndex->file) - beginOffset)
+    OUT_cffDict->begin = (CffDictItem*)malloc(dictLength * sizeof(CffDictItem));
+    CffDictItem* current = OUT_cffDict->begin;
+
+    fseek(dictIndex->file, beginOffset, SEEK_SET);
+    for (long i=0; i<dictLength; i = ftell(dictIndex->file) - beginOffset)
     {
-        int32_t curByte = fgetc(topDictIndex->file);
+        int32_t curByte = fgetc(dictIndex->file);
         if (curByte < 22) // operator
         {
-            current->type = COMMAND;
+            current->type = CFF_DICT_COMMAND;
             if (curByte == 12) // 两字节
-                current->content.data = 0xC00 + fgetc(topDictIndex->file);
+                current->content.data = 0xC00 + fgetc(dictIndex->file);
             else current->content.data = curByte;
         }
         else if (curByte == 30) // 浮点数
         {
-            current->type = REAL;
-            long curPos = ftell(topDictIndex->file);
-            while ((curByte % 16) != 15) curByte = fgetc(topDictIndex->file);
-            long length = ftell(topDictIndex->file) - curPos;
+            current->type = CFF_DICT_REAL;
+            long curPos = ftell(dictIndex->file);
+            while ((curByte % 16) != 15) curByte = fgetc(dictIndex->file);
+            long length = ftell(dictIndex->file) - curPos;
             current->content.str = malloc(length);
-            fseek(topDictIndex->file, curPos, SEEK_SET);
-            fread(current->content.str, 1, length, topDictIndex->file);
+            fseek(dictIndex->file, curPos, SEEK_SET);
+            fread(current->content.str, 1, length, dictIndex->file);
         }
         else // 整数
         {
-            current->type = INTEGER;
-            current->content.data = readDictInt(curByte, topDictIndex->file);
+            current->type = CFF_DICT_INTEGER;
+            current->content.data = readDictInt(curByte, dictIndex->file);
         }
         ++current;
     }
-    current->type = DEFAULT; // Top DICT结束
+    OUT_cffDict->end = current;
+}
+
+void cffDictDestruct(CffDict* cffDict)
+{
+    assert(cffDict != NULL);
+
+    for (CffDictItem* it = cffDict->begin; it != cffDict->end; ++it)
+    {
+        if (it->type == CFF_DICT_REAL)
+        {
+            free(it->content.str);
+        }
+    }
+    free(cffDict->begin);
 }
 
 /**
  * 计算Top DICT所需的长度。by 懒懒
  */
-long topDictLength()
+long cffDictCalcSize(CffDict* cffDict)
 {
     long length = 0;
-    for (DictItem* p = topDict; p->type != DEFAULT; ++p)
+    for (CffDictItem* p = cffDict->begin; p != cffDict->end; ++p)
     {
-        if (p->type == COMMAND) // 命令，1或2字节
+        if (p->type == CFF_DICT_COMMAND) // 命令，1或2字节
             length += (p->content.data > 256) ? 2 : 1;
-        else if (p->type == INTEGER) // 实数，1～5字节
+        else if (p->type == CFF_DICT_INTEGER) // 实数，1～5字节
         {
             if (p->content.data >= -107 && p->content.data <= 107) // 一字节
                 ++length;
@@ -171,8 +186,8 @@ long topDictLength()
                 length += 3;
             else length += 5; // 五字节
         }
-        else if (p->type == REAL) // 实数，字节数不定
-            for (uint8_t* c = topDict->content.str;; ++c)
+        else if (p->type == CFF_DICT_REAL) // 实数，字节数不定
+            for (uint8_t* c = p->content.str;; ++c)
             {
                 ++length;
                 if (*c % 16 == 15) break;

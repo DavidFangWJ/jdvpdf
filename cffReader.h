@@ -63,10 +63,9 @@ void cffIndexFindObject(CffIndex* cffIndex, size_t indexInArr, long* OUT_beginOf
  */
 void cffIndexSkip(CffIndex* cffIndex);
 
-#define DEFAULT 0
-#define INTEGER 1
-#define REAL    2
-#define COMMAND 3
+#define CFF_DICT_INTEGER 0
+#define CFF_DICT_REAL    1
+#define CFF_DICT_COMMAND 2
 
 typedef struct {
     uint8_t type;
@@ -74,6 +73,35 @@ typedef struct {
         int32_t  data;
         uint8_t* str;
     } content;
-} DictItem;
+} CffDictItem;
+
+typedef struct
+{
+    CffDictItem* begin;
+    CffDictItem* end;
+} CffDict;
+
+/**
+ * Constructs a DICT from a DICT INDEX
+ * Note: the CffDict should be properly destructed later!
+ * Author: 懒懒
+ * @param dictIndex the DICT INDEX where the DICT exists
+ * @param OUT_cffDict an out parameter. yields the cffDict
+ */
+void cffDictConstructFromIndex(CffIndex* dictIndex, CffDict* OUT_cffDict);
+
+/**
+ * Calculates the actual size of a DICT
+ * @param cffDict the DICT whose size is to be calculated
+ * @returns the size
+ */
+long cffDictCalcSize(CffDict* cffDict);
+
+/**
+ * Destructs a CffDict
+ * @param cffDict the CffDict to be destructed
+ */
+void cffDictDestruct(CffDict* cffDict);
+
 
 #endif // JDVPDF_CFFREADER_H
