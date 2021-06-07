@@ -43,10 +43,11 @@ typedef struct CffObjectNode_
  * Note: the return value should be properly freed!
  * Note: affects the file cursor!
  * @param file the file where the slice exists
+ * @param begin the beginning of the slice
  * @param size the size of the slice
  * @returns A pointer to the newly created object node
  */
-CffObjectNode* cffObjectNodeFromFile(FILE* file, size_t size);
+CffObjectNode* cffObjectNodeFromFile(FILE* file, long begin, size_t size);
 
 /**
  * Frees an object node

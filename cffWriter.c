@@ -10,12 +10,13 @@
 #include <stdlib.h>
 #include <assert.h>
 
-CffObjectNode* cffObjectNodeFromFile(FILE* file, size_t size)
+CffObjectNode* cffObjectNodeFromFile(FILE* file, long begin, size_t size)
 {
     assert(file != NULL);
     assert(size != 0);
 
     void* data = malloc(size);
+    fseek(file, begin, SEEK_SET);
     fread(data, 1, size, file);
     CffObjectNode* ret = (CffObjectNode*)malloc(sizeof(CffObjectNode));
     ret->next = NULL;
