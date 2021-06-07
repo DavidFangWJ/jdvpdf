@@ -4,10 +4,12 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 #include <string.h>
 #include <stdint.h>
 
 #include "fontObject.h"
+#include "endianIO.h"
 
 #define MAX_NUM_FONTS 128
 
@@ -75,21 +77,6 @@ inline static void switchEndian32(uint32_t* num)
     c3 = (*num & 0xFF0000u) >> 16u;
     c4 = (*num & 0xFF000000u) >> 24u;
     *num = (c1 << 24u) + (c2 << 16u) + (c3 << 8u) + c4;
-}
-
-inline static uint16_t readUint16BE(FILE* f)
-{
-    static uint8_t c1, c2;
-    c1 = fgetc(f);
-    c2 = fgetc(f);
-    return (c1 << 8u) + c2;
-}
-
-inline static uint32_t readUint32BE(FILE* f)
-{
-    static uint8_t c[4];
-    fread(c, 1, 4, f);
-    return (c[0] << 24u) + (c[1] << 16u) + (c[2] << 8u) + c[3];
 }
 
 uint16_t findIndexOfTable(Font* obj, const char* tagStr)
@@ -331,10 +318,10 @@ void readFDContent(Font* f)
     index = findIndexOfTable(f, "OS/2");
     offset = f->tableRecords[index].offset + 68;
     fseek(f->fontFile, offset, SEEK_SET);
-    f->ascent = readUint16BE(f->fontFile);
-    f->descent = readUint16BE(f->fontFile);
+    f->ascent = readUnsignedFromFileBE(f->fontFile, 2);
+    f->descent = readUnsignedFromFileBE(f->fontFile, 2);
     fseek(f->fontFile, 16, SEEK_CUR);
-    f->capsHeight = readUint16BE(f->fontFile);
+    f->capsHeight = readUnsignedFromFileBE(f->fontFile, 2);
 }
 
 // 读取SFNT格式的字体
@@ -362,10 +349,10 @@ Font* fontFromFile(char* dir, int index)
     if (tmp == 0x66637474U)
     {
         fseek(curFont->fontFile, 8l, SEEK_SET);
-        tmp = readUint32BE(curFont->fontFile); // numFonts
+        tmp = readUnsignedFromFileBE(curFont->fontFile, 4); // numFonts
         if (tmp <= index) return NULL;
         fseek(curFont->fontFile, index * 4l, SEEK_CUR);
-        tmp = readUint32BE(curFont->fontFile); // proper index
+        tmp = readUnsignedFromFileBE(curFont->fontFile, 4); // proper index
         fseek(curFont->fontFile, tmp, SEEK_SET);
         fread(&tmp, sizeof(uint32_t), 1, curFont->fontFile);
     }
@@ -373,14 +360,14 @@ Font* fontFromFile(char* dir, int index)
     curFont->isCID = 0;
 
     // 读取各表索引
-    curFont->numTables = readUint16BE(curFont->fontFile);
+    curFont->numTables = readUnsignedFromFileBE(curFont->fontFile, 2);;
     curFont->tableRecords = malloc(curFont->numTables * sizeof(struct FontTableRecord));
     fseek(curFont->fontFile, 6l, SEEK_CUR);
     fread(curFont->tableRecords, sizeof(struct FontTableRecord), curFont->numTables, curFont->fontFile);
     for (uint32_t* p = (uint32_t*) curFont->tableRecords;
             p < (uint32_t*) curFont->tableRecords + curFont->numTables;
             ++p)
-        switchEndian32(p);
+        *p = readUnsignedFromFileBE(curFont->fontFile, 4);
 
     // 如果是OTF字体，则使用CFF表内的名字；顺便确定是否为CID字体
     if (curFont->isOTF) getNameCff(curFont);
