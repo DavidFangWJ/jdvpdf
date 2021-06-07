@@ -12,8 +12,9 @@
  */
 inline uint32_t readUnsignedFromFileBE(FILE* file, size_t size)
 {
+    assert(0 < size && size <= 4);
     uint8_t buf[sizeof(uint32_t)] = {0};
-    fread(buf, 1, size, file);
+    fread(buf + (4 - size), 1, size, file);
     return
             (buf[3] << (8 * 0)) +
             (buf[2] << (8 * 1)) +
