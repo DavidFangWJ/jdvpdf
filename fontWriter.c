@@ -52,13 +52,10 @@ void outputSubsetCFF(size_t numGID, uint16_t* GIDs, Font* f)
         cffIndexSkip(&nameIndex);
     }
 
-    // Entry Top DICT INDEX
-    long topDictBegin, topDictEnd;
-    {
-        CffIndex topDictIndex;
-        cffIndexExtract(file, &topDictIndex);
-        cffIndexFindObject(&topDictIndex, 0, &topDictBegin, &topDictEnd);
-    }
+    CffDict topDict;
+    CffIndex topDictIndex;
+    cffIndexExtract(file, &topDictIndex);
+    cffDictConstructFromIndex(&topDictIndex, &topDict);
 
     // Subsetting charstrings
     // TO-DO: seek to somewhere where the CharstringsIndex exists
@@ -83,7 +80,10 @@ void outputSubsetCFF(size_t numGID, uint16_t* GIDs, Font* f)
         }
     }
     // TO-DO: deal with other sections
+    
+    // dtors
     cffIndexModelDestruct(&outCharstringsIndex);
+    cffDictDestruct(&topDict);
 }
 
 inline static void readLoca(int locaFormat, uint16_t numGlyphs, FILE* f, struct FontTableRecord* record,
