@@ -5,6 +5,7 @@
 
 
 #include "cffWriter.h"
+#include "endianIO.h"
 
 #include <stdlib.h>
 #include <assert.h>

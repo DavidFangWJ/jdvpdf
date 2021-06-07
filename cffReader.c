@@ -8,6 +8,7 @@
 #include <stdlib.h>
 
 #include "cffReader.h"
+#include "endianIO.h"
 
 void cffHeaderExtract(FILE* file, CffHeader* OUT_cffHeader)
 {

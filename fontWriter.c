@@ -12,6 +12,7 @@
 
 #include "cffReader.h"
 #include "cffWriter.h" // for cff subsetting
+#include "endianIO.h"
 
 extern FILE* outFile;
 
@@ -23,21 +24,6 @@ inline static void switchEndian32(uint32_t* num)
     c3 = (*num & 0xFF0000u) >> 16u;
     c4 = (*num & 0xFF000000u) >> 24u;
     *num = (c1 << 24u) + (c2 << 16u) + (c3 << 8u) + c4;
-}
-
-inline static uint16_t readUint16BE(FILE* f)
-{
-    static uint8_t c1, c2;
-    c1 = fgetc(f);
-    c2 = fgetc(f);
-    return (c1 << 8u) + c2;
-}
-
-inline static uint32_t readUint32BE(FILE* f)
-{
-    static uint8_t c[4];
-    fread(c, 1, 4, f);
-    return (c[0] << 24u) + (c[1] << 16u) + (c[2] << 8u) + c[3];
 }
 
 /**
@@ -98,24 +84,6 @@ void outputSubsetCFF(size_t numGID, uint16_t* GIDs, Font* f)
     }
     // TO-DO: deal with other sections
     cffIndexModelDestruct(&outCharstringsIndex);
-/*
-    static uint8_t header[8] = {1,0,4,4,0,1,1,1};// 文件头和name dic的开头4字节
-    uint32_t tmp;
-    char* topDictBuffer;
-
-    fwrite(header, 1, 8, outFile);
-
-    // name dict
-    tmp = strlen(f->CIDFontName);
-    fputc(tmp + 1, outFile);
-    fwrite(f->CIDFontName, 1, tmp, outFile);
-
-    // top dict
-    fseek(f->fontFile, absOffset + 8, SEEK_SET);
-    tmp = fgetc(f->fontFile);
-
-    //tmp = readUint16BE(f->fontFile);
-*/
 }
 
 inline static void readLoca(int locaFormat, uint16_t numGlyphs, FILE* f, struct FontTableRecord* record,
@@ -125,9 +93,9 @@ inline static void readLoca(int locaFormat, uint16_t numGlyphs, FILE* f, struct 
     for (int i=0; i<=numGlyphs; ++i)
     {
         if (locaFormat == 0)
-            dest[i] = readUint16BE(f) * 2;
+            dest[i] = readUnsignedFromFileBE(f, 2) * 2;
         else
-            dest[i] = readUint32BE(f);
+            dest[i] = readUnsignedFromFileBE(f, 4);
     }
 }
 
@@ -196,7 +164,7 @@ void outputSubsetSFNT(size_t numGID, uint16_t* GIDs, Font* f)
     fseek(f->fontFile, oldOffset[HEAD] + 50, SEEK_SET);
     int locaFormat = fgetc(f->fontFile);
     fseek(f->fontFile, oldOffset[MAXP] + 4, SEEK_SET);
-    uint16_t numGlyphs = readUint16BE(f->fontFile);
+    uint16_t numGlyphs = readUnsignedFromFileBE(f->fontFile, 2);
     uint32_t* locaOld = malloc((numGlyphs + 1) * sizeof(int));
     uint32_t* locaNew = malloc((numGlyphs + 1) * sizeof(int));
 
@@ -249,10 +217,7 @@ void outputSubsetSFNT(size_t numGID, uint16_t* GIDs, Font* f)
     for (int i=0; i<9; ++i) // 索引及各表
         checkSum += newRecord[i].checkSum;
     for (uint32_t* p = (uint32_t*) newRecord; p < (uint32_t*) newRecord + 9; ++p)
-    {
         checkSum += *p;
-        switchEndian32(p);
-    }
 
     // head表
     char* headTable = malloc(NEXT_MULT_OF_4(newRecord[HEAD].length));
@@ -262,7 +227,8 @@ void outputSubsetSFNT(size_t numGID, uint16_t* GIDs, Font* f)
 
     // 输出
     fwrite(header, 1, 12, outFile);
-    fwrite(newRecord, 16, 9, outFile);
+    for (uint32_t* p = (uint32_t*) newRecord; p < (uint32_t*) newRecord + 9; ++p)
+        writeUnsignedToFileBE(outFile, *p, 4);
     for (int i=0; i<9; ++i)
     {
         if (i == GLYF) fwrite(glyfNew, 1, NEXT_MULT_OF_4(newRecord[GLYF].length), outFile);

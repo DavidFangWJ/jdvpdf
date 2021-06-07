@@ -39,22 +39,6 @@ typedef struct
 } CffIndex;
 
 /**
- * Read an unsigned integer from file in big endian
- * @param file the file to be read from
- * @param size the size of the integer (in byte number)
- */
-inline uint32_t readUnsignedFromFileBE(FILE* file, size_t size)
-{
-    uint8_t buf[sizeof(uint32_t)] = {0};
-    fread(buf, 1, size, file);
-    return 
-        (buf[3] << (8 * 0)) +
-        (buf[2] << (8 * 1)) + 
-        (buf[1] << (8 * 2)) +
-        (buf[0] << (8 * 3));
-}
-
-/**
  * Extracts information of an INDEX
  * Note: affects the file cursor!
  * @param file the file where the INDEX exists
