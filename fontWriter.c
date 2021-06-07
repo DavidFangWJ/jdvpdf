@@ -89,7 +89,7 @@ void outputSubsetCFF(size_t numGID, uint16_t* GIDs, Font* f)
             ++itPendingGID;
             long objectBegin, objectLength;
             cffIndexFindObject(&inCharstringsIndex, i, &objectBegin, &objectLength);
-            cffIndexModelAppendEmpty(cffObjectNodeFromFile(file, objectBegin, objectLength));
+            cffIndexModelAppend(&outCharstringsIndex, cffObjectNodeFromFile(file, objectBegin, objectLength));
         }
         else
         {
