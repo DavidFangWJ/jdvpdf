@@ -79,4 +79,17 @@ void cffIndexFindObject(CffIndex* cffIndex, size_t indexInArr, long* OUT_beginOf
  */
 void cffIndexSkip(CffIndex* cffIndex);
 
+#define DEFAULT 0
+#define INTEGER 1
+#define REAL    2
+#define COMMAND 3
+
+typedef struct {
+    uint8_t type;
+    union {
+        int32_t  data;
+        uint8_t* str;
+    } content;
+} DictItem;
+
 #endif // JDVPDF_CFFREADER_H
