@@ -95,7 +95,7 @@ void cffIndexModelAppendEmpty(CffIndexModel* model);
  * @param model the INDEX model whose size is to be calculated
  * @returns the size
  */
-inline size_t cffIndexModelCalcSize(CffIndexModel* model)
+inline long cffIndexModelCalcSize(CffIndexModel* model)
 {
     // According to the spec: 
     // - Offsets in the offset array are relative to the byte

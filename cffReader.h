@@ -57,6 +57,14 @@ void cffIndexExtract(FILE* file, CffIndex* OUT_cffIndex);
 void cffIndexFindObject(CffIndex* cffIndex, size_t indexInArr, long* OUT_beginOffset, long* OUT_length);
 
 /**
+ * Gets the physical size of the INDEX structure
+ * Note: affects the file cursor!
+ * @param cffIndex the INDEX structure whose size is to be got
+ * @returns the size of the INDEX
+ */
+long cffIndexGetSize(CffIndex* cffIndex);
+
+/**
  * Skips the given INDEX
  * Note: affects the file cursor!
  * @param cffIndex the INDEX structure to skip
@@ -82,13 +90,15 @@ typedef struct
 } CffDict;
 
 /**
- * Constructs a DICT from a DICT INDEX
+ * Constructs a DICT from a file
+ * Note: affects the file cursor!
  * Note: the CffDict should be properly destructed later!
  * Author: 懒懒
- * @param dictIndex the DICT INDEX where the DICT exists
+ * @param file the file where the dict exists
+ * @param size the size of the dict in file
  * @param OUT_cffDict an out parameter. yields the cffDict
  */
-void cffDictConstructFromIndex(CffIndex* dictIndex, CffDict* OUT_cffDict);
+void cffDictConstruct(FILE* file, long size, CffDict* OUT_cffDict);
 
 /**
  * Calculates the actual size of a DICT

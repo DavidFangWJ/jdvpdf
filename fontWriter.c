@@ -55,34 +55,67 @@ void outputSubsetCFF(size_t numGID, uint16_t* GIDs, Font* f)
     CffDict topDict;
     CffIndex topDictIndex;
     cffIndexExtract(file, &topDictIndex);
-    cffDictConstructFromIndex(&topDictIndex, &topDict);
+    long dictBegin, dictLength;
+    cffIndexFindObject(&topDictIndex, 0, &dictBegin, &dictLength);
+    fseek(file, dictBegin, SEEK_SET);
+    cffDictConstruct(file, dictLength, &topDict);
 
-    // Subsetting charstrings
-    // TO-DO: seek to somewhere where the CharstringsIndex exists
-    CffIndex inCharstringsIndex;
-    cffIndexExtract(file, &inCharstringsIndex);
-    CffIndexModel outCharstringsIndex;
-    cffIndexModelConstruct(&outCharstringsIndex);
+    // According to the Data Layout Chapter,
+    // Encoding and CharStrings INDEXs are before CharStrings,
+    // which means their offsets only rely on the length of the
+    // Top DICT itself;
+    // However, the Private DICT exists after CharStrings INDEX
+    // and thus should be updated according to the CharStrings size
+    // 0 -> pCharsetOffset (15)
+    // 1 -> pEncodingOffset (16)
+    // 2 -> pCharStringsOffset (17)
+    // 3 -> pPrivateOffset (18)
+    int32_t* pRefOffset[4] = {0};
+    const size_t charset = 0, encoding = 1, charStrings = 2, private = 3;
+    for (CffDictItem* it = topDict.begin; it != topDict.end; ++it)
+    {
+        if (it->type == CFF_DICT_COMMAND)
+        {
+            CffDictItem* arg = it - 1;
+            int32_t op = it->content.data;
+            if (15 <= op && op <= 18)
+            {
+                assert(arg->type == CFF_DICT_INTEGER);
+                pRefOffset[op - 15] = &arg->content.data;
+            }
+        }
+    }
+
+    // Subsetting CharStrings
+    assert(pRefOffset[charStrings] != NULL);
+    fseek(file, *pRefOffset[charStrings], SEEK_SET);
+    CffIndex inCharStringsIndex;
+    cffIndexExtract(file, &inCharStringsIndex);
+    CffIndexModel outCharStringsIndex;
+    cffIndexModelConstruct(&outCharStringsIndex);
     uint16_t* itPendingGID = GIDs;
     uint16_t* endPendingGID = GIDs + numGID;
-    for (size_t i = 0; i < inCharstringsIndex.count; ++i)
+    for (size_t i = 0; i < inCharStringsIndex.count; ++i)
     {
         if (itPendingGID != endPendingGID && *itPendingGID == i)
         {
             ++itPendingGID;
             long objectBegin, objectLength;
-            cffIndexFindObject(&inCharstringsIndex, i, &objectBegin, &objectLength);
-            cffIndexModelAppend(&outCharstringsIndex, cffObjectNodeFromFile(file, objectBegin, objectLength));
+            cffIndexFindObject(&inCharStringsIndex, i, &objectBegin, &objectLength);
+            cffIndexModelAppend(&outCharStringsIndex, cffObjectNodeFromFile(file, objectBegin, objectLength));
         }
         else
         {
-            cffIndexModelAppendEmpty(&outCharstringsIndex);
+            cffIndexModelAppendEmpty(&outCharStringsIndex);
         }
     }
-    // TO-DO: deal with other sections
+
+    long charStringsSizeDiff = cffIndexModelCalcSize(&outCharStringsIndex) - cffIndexGetSize(&inCharStringsIndex);
+    
+    // TO-DO: rewrite offsets; copy other sections
     
     // dtors
-    cffIndexModelDestruct(&outCharstringsIndex);
+    cffIndexModelDestruct(&outCharStringsIndex);
     cffDictDestruct(&topDict);
 }
 

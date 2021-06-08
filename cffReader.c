@@ -67,6 +67,29 @@ void cffIndexFindObject(CffIndex* cffIndex, size_t indexInArr, long* OUT_beginOf
     *OUT_beginOffset = offsetBegin - 1 + cffIndex->objectArrayInFile;
 }
 
+long cffIndexGetSize(CffIndex* cffIndex)
+{
+    assert(cffIndex != NULL);
+
+    if (cffIndex->count == 0)
+    {
+        return sizeof(cffIndex->count);
+    }
+
+    FILE* file = cffIndex->file;
+    OffSize offSize = cffIndex->offSize;
+
+    size_t offArrLength = cffIndex->count * offSize;
+    fseek(file, cffIndex->offsetArrayInFile + offArrLength, SEEK_SET);
+    size_t bodyLength = readUnsignedFromFileBE(file, offSize) - 1;
+    
+    return 
+        sizeof(cffIndex->count) +
+        sizeof(cffIndex->offSize) +
+        offArrLength +
+        bodyLength;
+}
+
 void cffIndexSkip(CffIndex* cffIndex)
 {
     assert(cffIndex != NULL);
@@ -106,46 +129,42 @@ static int32_t readDictInt(int32_t current, FILE* f)
 
 /**
  * 从Top DICT INDEX中读取Top DICT的内容。by 懒懒
- * @param dictIndex 有关Top DICT INDEX的数据
  */
-void cffDictConstructFromIndex(CffIndex* dictIndex, CffDict* OUT_cffDict)
+void cffDictConstruct(FILE* file, long dictLength, CffDict* OUT_cffDict)
 {
-    assert(dictIndex != NULL);
+    assert(file != NULL);
     assert(OUT_cffDict != NULL);
-    
-    // 直接读取第2个数字
-    long beginOffset, dictLength;
-    cffIndexFindObject(dictIndex, 0, &beginOffset, &dictLength);
+
+    long beginOffset = ftell(file);
     // 数据和命令至少1字节，因此项数不会超过字节数
 
     OUT_cffDict->begin = (CffDictItem*)malloc(dictLength * sizeof(CffDictItem));
     CffDictItem* current = OUT_cffDict->begin;
 
-    fseek(dictIndex->file, beginOffset, SEEK_SET);
-    for (long i=0; i<dictLength; i = ftell(dictIndex->file) - beginOffset)
+    for (long i = 0; i < dictLength; i = ftell(file) - beginOffset)
     {
-        int32_t curByte = fgetc(dictIndex->file);
+        int32_t curByte = fgetc(file);
         if (curByte < 22) // operator
         {
             current->type = CFF_DICT_COMMAND;
             if (curByte == 12) // 两字节
-                current->content.data = 0xC00 + fgetc(dictIndex->file);
+                current->content.data = 0xC00 + fgetc(file);
             else current->content.data = curByte;
         }
         else if (curByte == 30) // 浮点数
         {
             current->type = CFF_DICT_REAL;
-            long curPos = ftell(dictIndex->file);
-            while ((curByte % 16) != 15) curByte = fgetc(dictIndex->file);
-            long length = ftell(dictIndex->file) - curPos;
+            long curPos = ftell(file);
+            while ((curByte % 16) != 15) curByte = fgetc(file);
+            long length = ftell(file) - curPos;
             current->content.str = malloc(length);
-            fseek(dictIndex->file, curPos, SEEK_SET);
-            fread(current->content.str, 1, length, dictIndex->file);
+            fseek(file, curPos, SEEK_SET);
+            fread(current->content.str, 1, length, file);
         }
         else // 整数
         {
             current->type = CFF_DICT_INTEGER;
-            current->content.data = readDictInt(curByte, dictIndex->file);
+            current->content.data = readDictInt(curByte, file);
         }
         ++current;
     }
