@@ -123,7 +123,16 @@ void outputSubsetCFF(size_t numGID, uint16_t* GIDs, Font* f)
     }
 
     long charStringsSizeDiff = cffIndexModelCalcSize(&outCharStringsIndex) - cffIndexGetSize(&inCharStringsIndex);
-    
+    for (size_t i = 0; i < 4; ++i)
+    {
+        if (i == charStrings) continue;
+        if (pRefOffset[i] && *pRefOffset[i] > pRefOffset[charStrings])
+        {
+            *pRefOffset[i] += charStringsSizeDiff;
+        }
+    }
+
+
     // TO-DO: rewrite offsets; copy other sections
     
     // dtors
