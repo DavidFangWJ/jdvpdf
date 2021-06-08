@@ -26,6 +26,18 @@ inline static void switchEndian32(uint32_t* num)
     *num = (c1 << 24u) + (c2 << 16u) + (c3 << 8u) + c4;
 }
 
+static void fileCopy(FILE* dest, FILE* src, size_t size)
+{
+    uint8_t buffer[512];
+    while (size != 0)
+    {
+        size_t diff = size & 512;
+        fread(buffer, 1, diff, src);
+        fwrite(buffer, 1, diff, dest);
+        size -= diff;
+    }
+}
+
 /**
  * 生成一个CFF字体的子集。
  * @param numGID 一共使用的GID数
