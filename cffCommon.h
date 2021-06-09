@@ -16,4 +16,22 @@ typedef uint8_t OffSize;
 // Here we use a 4 byte integer to store it
 typedef uint32_t Offset;
 
+#define CFF_DICT_INTEGER 0
+#define CFF_DICT_REAL    1
+#define CFF_DICT_COMMAND 2
+
+typedef struct {
+    uint8_t type;
+    union {
+        int32_t  data;
+        uint8_t* str;
+    } content;
+} CffDictItem;
+
+typedef struct
+{
+    CffDictItem* begin;
+    CffDictItem* end;
+} CffDict;
+
 #endif // JDVPDF_CFFCOMMON_H

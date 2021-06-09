@@ -184,33 +184,3 @@ void cffDictDestruct(CffDict* cffDict)
     }
     free(cffDict->begin);
 }
-
-/**
- * 计算Top DICT所需的长度。by 懒懒
- */
-long cffDictCalcSize(CffDict* cffDict)
-{
-    long length = 0;
-    for (CffDictItem* p = cffDict->begin; p != cffDict->end; ++p)
-    {
-        if (p->type == CFF_DICT_COMMAND) // 命令，1或2字节
-            length += (p->content.data > 256) ? 2 : 1;
-        else if (p->type == CFF_DICT_INTEGER) // 实数，1～5字节
-        {
-            if (p->content.data >= -107 && p->content.data <= 107) // 一字节
-                ++length;
-            else if (p->content.data >= -1131 && p->content.data <= 1131) // 两字节
-                length += 2;
-            else if (p->content.data >= -32768 && p->content.data <= 32767) // 三字节
-                length += 3;
-            else length += 5; // 五字节
-        }
-        else if (p->type == CFF_DICT_REAL) // 实数，字节数不定
-            for (uint8_t* c = p->content.str;; ++c)
-            {
-                ++length;
-                if (*c % 16 == 15) break;
-            }
-    }
-    return length;
-}

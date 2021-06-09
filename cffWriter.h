@@ -39,6 +39,18 @@ typedef struct CffObjectNode_
 } CffObjectNode;
 
 /**
+ * Creates an object node for an object of the given size
+ * @param size the size of the object
+ */
+CffObjectNode* cffObjectNodeNew(size_t size);
+
+/**
+ * Creates an object node with proper format from a DICT representation
+ * @param cffDict the DICT representation
+ */
+CffObjectNode* cffObjectNodeFromDict(CffDict* cffDict);
+
+/**
  * Creates an object node from a slice of file
  * Note: the return value should be properly freed!
  * Note: affects the file cursor!
@@ -122,5 +134,20 @@ inline long cffIndexModelCalcSize(CffIndexModel* model)
  * @param file file to be written to
  */
 void cffIndexModelWriteToFile(CffIndexModel* model, FILE* file);
+
+/**
+ * Calculates the actual size of a DICT
+ * @param cffDict the DICT whose size is to be calculated
+ * @returns the size
+ */
+long cffDictCalcSize(CffDict* cffDict);
+
+/**
+ * Writes a DICT item in proper format into a byte buffer
+ * @param out the output iterator
+ * @param item the item
+ * @returns the size of the item
+ */
+size_t cffDictWriteItem(void* out, CffDictItem* item);
 
 #endif // JDVPDF_CFFWRITER_H

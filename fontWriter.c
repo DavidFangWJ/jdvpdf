@@ -58,19 +58,24 @@ void outputSubsetCFF(size_t numGID, uint16_t* GIDs, Font* f)
     cffHeaderExtract(file, &header);
 
     // Entry Name INDEX
-    {   
-        CffIndex nameIndex;
-        cffIndexExtract(file, &nameIndex);
-        cffIndexSkip(&nameIndex);
-    }
+    CffIndex oldNameIndex;
+    cffIndexExtract(file, &oldNameIndex);
+    long oldNameIndexSize = cffIndexGetSize(&oldNameIndex);
+    cffIndexSkip(&oldNameIndex);
+
+    CffIndexModel newNameIndex;
+    CffObjectNode* newNameNode = cffObjectNodeNew(strlen(f->CIDFontName));
+    strcpy(newNameNode->ext.data, f->CIDFontName);
+    cffIndexModelAppend(&newNameIndex, newNameNode);
+    long nameIndexSizeDiff = cffIndexModelCalcSize(&newNameIndex) - oldNameIndexSize;
 
     CffDict topDict;
     CffIndex topDictIndex;
     cffIndexExtract(file, &topDictIndex);
-    long dictBegin, dictLength;
-    cffIndexFindObject(&topDictIndex, 0, &dictBegin, &dictLength);
-    fseek(file, dictBegin, SEEK_SET);
-    cffDictConstruct(file, dictLength, &topDict);
+    long oldTopDictBegin, oldTopDictSize;
+    cffIndexFindObject(&topDictIndex, 0, &oldTopDictBegin, &oldTopDictSize);
+    fseek(file, oldTopDictBegin, SEEK_SET);
+    cffDictConstruct(file, oldTopDictSize, &topDict);
 
     // According to the Data Layout Chapter,
     // Encoding and CharStrings INDEXs are before CharStrings,
@@ -100,44 +105,94 @@ void outputSubsetCFF(size_t numGID, uint16_t* GIDs, Font* f)
 
     // Subsetting CharStrings
     assert(pRefOffset[charStrings] != NULL);
-    fseek(file, *pRefOffset[charStrings], SEEK_SET);
-    CffIndex inCharStringsIndex;
-    cffIndexExtract(file, &inCharStringsIndex);
-    CffIndexModel outCharStringsIndex;
-    cffIndexModelConstruct(&outCharStringsIndex);
+    long oldCharStringsIndexBegin = *pRefOffset[charStrings];
+    fseek(file, oldCharStringsIndexBegin, SEEK_SET);
+    CffIndex oldCharStringsIndex;
+    cffIndexExtract(file, &oldCharStringsIndex);
+    CffIndexModel newCharStringsIndex;
+    cffIndexModelConstruct(&newCharStringsIndex);
     uint16_t* itPendingGID = GIDs;
     uint16_t* endPendingGID = GIDs + numGID;
-    for (size_t i = 0; i < inCharStringsIndex.count; ++i)
+    for (size_t i = 0; i < oldCharStringsIndex.count; ++i)
     {
         if (itPendingGID != endPendingGID && *itPendingGID == i)
         {
             ++itPendingGID;
             long objectBegin, objectLength;
-            cffIndexFindObject(&inCharStringsIndex, i, &objectBegin, &objectLength);
-            cffIndexModelAppend(&outCharStringsIndex, cffObjectNodeFromFile(file, objectBegin, objectLength));
+            cffIndexFindObject(&oldCharStringsIndex, i, &objectBegin, &objectLength);
+            cffIndexModelAppend(&newCharStringsIndex, cffObjectNodeFromFile(file, objectBegin, objectLength));
         }
         else
         {
-            cffIndexModelAppendEmpty(&outCharStringsIndex);
+            cffIndexModelAppendEmpty(&newCharStringsIndex);
         }
     }
 
-    long charStringsSizeDiff = cffIndexModelCalcSize(&outCharStringsIndex) - cffIndexGetSize(&inCharStringsIndex);
+    long charStringsSizeDiff = cffIndexModelCalcSize(&newCharStringsIndex) - cffIndexGetSize(&oldCharStringsIndex);
     for (size_t i = 0; i < 4; ++i)
     {
-        if (i == charStrings) continue;
-        if (pRefOffset[i] && *pRefOffset[i] > pRefOffset[charStrings])
+        if (!pRefOffset[i]) continue;
+        *pRefOffset[i] += nameIndexSizeDiff;
+        if (i != charStrings && *pRefOffset[i] > pRefOffset[charStrings])
         {
             *pRefOffset[i] += charStringsSizeDiff;
         }
     }
 
+    int resizeAttemptTimes = 0;
 
-    // TO-DO: rewrite offsets; copy other sections
-    
-    // dtors
-    cffIndexModelDestruct(&outCharStringsIndex);
+    long oldTopDictIndexOffSize = topDictIndex.offSize;
+    for (;;) // I don't know if this can really work
+    {
+        long currentTopDictSize = cffDictCalcSize(&topDict);
+        long currentTopDictIndexOffSize = cffCalcOffSize(currentTopDictSize);
+        long offsetDiff = 
+            currentTopDictSize - oldTopDictSize + 
+            (currentTopDictIndexOffSize - oldTopDictIndexOffSize) / 2;
+        if (offsetDiff > 0)
+        {
+            for (size_t i = 0; i < 4; ++i)
+            {
+                if (pRefOffset[i]) *pRefOffset[i] += offsetDiff;
+            }
+        }
+        else if (offsetDiff < 0)
+        {
+            for (size_t i = 0; i < 4; ++i)
+            {
+                if (pRefOffset[i]) *pRefOffset[i] -= offsetDiff;
+            }
+        }
+        else break;
+        oldTopDictSize = currentTopDictSize;
+        oldTopDictIndexOffSize = currentTopDictIndexOffSize;
+        ++resizeAttemptTimes;
+        assert(resizeAttemptTimes <= 4);
+    }
+
+    // Finally!!!
+
+    fseek(file, fileBegin, SEEK_SET);
+    fileCopy(outFile, file, 4); // Header
+    cffIndexModelWriteToFile(&newNameIndex, outFile); // Name INDEX
+    cffIndexModelDestruct(&newNameIndex);
+
+    CffIndexModel newTopDictIndex;
+    cffIndexModelConstruct(&newTopDictIndex);
+    cffIndexModelAppend(&newTopDictIndex, cffObjectNodeFromDict(&topDict));
     cffDictDestruct(&topDict);
+    cffIndexModelWriteToFile(&newTopDictIndex, outFile);
+    cffIndexModelDestruct(&newTopDictIndex);
+
+    fseek(file, oldTopDictBegin + oldTopDictSize, SEEK_SET); // Region between Top DICT and CharStrings INDEX
+    fileCopy(outFile, file, oldCharStringsIndexBegin - oldTopDictSize - oldTopDictBegin);
+
+    cffIndexModelWriteToFile(&newCharStringsIndex, outFile);
+    cffIndexModelDestruct(&newCharStringsIndex);
+
+    long oldCharStringsIndexEnd = oldCharStringsIndexBegin + cffIndexGetSize(&oldCharStringsIndex); // Region after CharStrings INDEX
+    fseek(file, oldCharStringsIndexEnd, SEEK_SET);
+    fileCopy(outFile, file, fileBegin + length - oldCharStringsIndexEnd);
 }
 
 inline static void readLoca(int locaFormat, uint16_t numGlyphs, FILE* f, struct FontTableRecord* record,

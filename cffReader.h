@@ -71,24 +71,6 @@ long cffIndexGetSize(CffIndex* cffIndex);
  */
 void cffIndexSkip(CffIndex* cffIndex);
 
-#define CFF_DICT_INTEGER 0
-#define CFF_DICT_REAL    1
-#define CFF_DICT_COMMAND 2
-
-typedef struct {
-    uint8_t type;
-    union {
-        int32_t  data;
-        uint8_t* str;
-    } content;
-} CffDictItem;
-
-typedef struct
-{
-    CffDictItem* begin;
-    CffDictItem* end;
-} CffDict;
-
 /**
  * Constructs a DICT from a file
  * Note: affects the file cursor!
@@ -99,13 +81,6 @@ typedef struct
  * @param OUT_cffDict an out parameter. yields the cffDict
  */
 void cffDictConstruct(FILE* file, long size, CffDict* OUT_cffDict);
-
-/**
- * Calculates the actual size of a DICT
- * @param cffDict the DICT whose size is to be calculated
- * @returns the size
- */
-long cffDictCalcSize(CffDict* cffDict);
 
 /**
  * Destructs a CffDict
