@@ -149,18 +149,11 @@ void outputSubsetCFF(size_t numGID, uint16_t* GIDs, Font* f)
         long offsetDiff = 
             currentTopDictSize - oldTopDictSize + 
             (currentTopDictIndexOffSize - oldTopDictIndexOffSize) / 2;
-        if (offsetDiff > 0)
+        if (offsetDiff != 0)
         {
             for (size_t i = 0; i < 4; ++i)
             {
                 if (pRefOffset[i]) *pRefOffset[i] += offsetDiff;
-            }
-        }
-        else if (offsetDiff < 0)
-        {
-            for (size_t i = 0; i < 4; ++i)
-            {
-                if (pRefOffset[i]) *pRefOffset[i] -= offsetDiff;
             }
         }
         else break;
