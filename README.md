@@ -15,13 +15,22 @@
 ## `main.c`
 主程序。
 
+## `endianIO.h`
+按大端序在文件中读写整数。
+
+## `cffCommon.h`
+读写 CFF 文件共同需要的类型。
+
+## `cffWriter.c`/`.h`
+写入 CFF 文件。
+
 ## `cffReader.c`/`.h`
 读取 CFF 文件。
 
 ## `fontObject.c`/`.h`
 字体处理用到的文件类型。
 
-## `fontWriter.c`/`.h`
+## `fontOutput.c`/`.h`
 输出（子集化的）CFF/SFNT 格式字体。
 
 ## `jdvReader.c`/`.h`

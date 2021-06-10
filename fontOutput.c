@@ -8,7 +8,7 @@
 #include <string.h>
 
 #include "fontObject.h"
-#include "fontWriter.h"
+#include "fontOutput.h"
 
 #include "cffReader.h"
 #include "cffWriter.h" // for cff subsetting
